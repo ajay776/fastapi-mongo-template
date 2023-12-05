@@ -52,8 +52,6 @@ def get_password_hash(password):
 
 
 def register_user(user_data):
-    import pdb
-    pdb.set_trace()
     user = user_data.dict()
     hashed_password = get_password_hash(user.get("password"))
     user["password"] = hashed_password
@@ -62,8 +60,6 @@ def register_user(user_data):
 
 
 def authenticate_user(username: str, password: str):
-    import pdb
-    # pdb.set_trace()
     user = user_collection.find_one({"username": username})
     # user = get_user(db, username)
     if not user:
@@ -103,7 +99,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     except JWTError:
         raise credentials_exception
     # user = get_user(fake_users_db, username=token_data.username)
-    user = user_collection.find_one(username=token_data.username)
+    user = user_collection.find_one({"username": token_data.username})
     if user is None:
         raise credentials_exception
     return user
@@ -112,7 +108,8 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)]
 ):
-    if current_user.is_active:
+
+    if not current_user.get("is_active"):
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
@@ -125,9 +122,8 @@ def refresh_token(
         payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         raise credentials_exception
-
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     new_access_token = create_access_token(
-        data={"sub": payload["sub"]}, expires_delta=access_token_expires)
+        data=payload, expires_delta=access_token_expires)
 
     return {"access_token": new_access_token, "token_type": "bearer"}

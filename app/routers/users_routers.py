@@ -1,4 +1,4 @@
-from app.utils.users_utils import authenticate_user, ACCESS_TOKEN_EXPIRE_MINUTES, create_access_token, get_current_active_user, refresh_token, create_refresh_token, register_user
+from app.utils.users_utils import authenticate_user, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_MINUTES, create_access_token, get_current_active_user, refresh_token, create_refresh_token, register_user
 from fastapi.security import OAuth2PasswordRequestForm, HTTPBasic, HTTPBasicCredentials
 from fastapi import Depends, HTTPException, status
 from app.schemas.users_schema import User, Token, UserRegistration
@@ -31,11 +31,12 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    refresh_token_expires = timedelta(minutes=REFRESH_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"username": user.get("username"), "email": user.get("email"), "is_active": user.get("is_active")}, expires_delta=access_token_expires
     )
     refresh_token = create_refresh_token(
-        data={"username": user.get("username"), "email": user.get("email"), "is_active": user.get("is_active")}, expires_delta=access_token_expires
+        data={"username": user.get("username"), "email": user.get("email"), "is_active": user.get("is_active")}, expires_delta=refresh_token_expires
     )
 
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
@@ -52,9 +53,10 @@ async def read_users_me(
 async def read_own_items(
     current_user: Annotated[User, Depends(get_current_active_user)]
 ):
-    return [{"item_id": "Foo", "owner": current_user.username}]
+    return [{"item_id": "Foo", "owner": current_user.get("username")}]
 
 
-@router.post("/token/refresh", response_model=dict)
-async def refresh_token_endpoint(token_data: dict = Depends(refresh_token)):
-    return token_data
+@router.post("/token/refresh")
+async def refresh_token_endpoint(token_data: str):
+    response = refresh_token(token_data)
+    return response
